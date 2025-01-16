@@ -18,10 +18,6 @@ class FitDiTLoader:
     def INPUT_TYPES(s):
         return {
             "required": {
-                "model_path": ("STRING", {
-                    "default": os.path.join(folder_paths.models_dir, "FitDiT_models"), 
-                    "dir_path": True
-                }),
                 "device": ("STRING", {"default": "cuda"}),
                 "with_fp16": ("BOOLEAN", {"default": False}),
                 "with_offload": ("BOOLEAN", {"default": False}),
@@ -34,17 +30,17 @@ class FitDiTLoader:
     FUNCTION = "load_model"
     CATEGORY = "FitDiT"
 
-    def load_model(self, model_path, device="cuda", with_fp16=False, with_offload=False, with_aggressive_offload=False):
+    def load_model(self, device="cuda", with_fp16=False, with_offload=False, with_aggressive_offload=False):
         weight_dtype = torch.float16 if with_fp16 else torch.bfloat16
         
         # Load model components
         transformer_garm = SD3Transformer2DModel_Garm.from_pretrained(
-            os.path.join(model_path, "transformer_garm"), 
+            os.path.join(folder_paths.models_dir, "FitDiT_models", "transformer_garm"), 
             torch_dtype=weight_dtype
         )
         
         transformer_vton = SD3Transformer2DModel_Vton.from_pretrained(
-            os.path.join(model_path, "transformer_vton"), 
+            os.path.join(folder_paths.models_dir, "FitDiT_models", "transformer_vton"), 
             torch_dtype=weight_dtype
         )
         
@@ -54,16 +50,16 @@ class FitDiTLoader:
             block_out_channels=(32, 64, 256, 512)
         )
         pose_guider.load_state_dict(
-            torch.load(os.path.join(model_path, "pose_guider", "diffusion_pytorch_model.bin"))
+            torch.load(os.path.join(folder_paths.models_dir, "FitDiT_models", "pose_guider", "diffusion_pytorch_model.bin"))
         )
         
         # Load CLIP models
         image_encoder_large = CLIPVisionModelWithProjection.from_pretrained(
-            "openai/clip-vit-large-patch14",
+            os.path.join(folder_paths.models_dir, "clip", "clip-vit-large-patch14"), 
             torch_dtype=weight_dtype
         )
         image_encoder_bigG = CLIPVisionModelWithProjection.from_pretrained(
-            "laion/CLIP-ViT-bigG-14-laion2B-39B-b160k",
+            os.path.join(folder_paths.models_dir, "clip", "CLIP-ViT-bigG-14-laion2B-39B-b160k"), 
             torch_dtype=weight_dtype
         )
         
@@ -74,7 +70,7 @@ class FitDiTLoader:
         
         # Create pipeline
         pipeline = StableDiffusion3TryOnPipeline.from_pretrained(
-            model_path,
+            os.path.join(folder_paths.models_dir, "FitDiT_models"),
             torch_dtype=weight_dtype,
             transformer_garm=transformer_garm,
             transformer_vton=transformer_vton,
@@ -87,8 +83,8 @@ class FitDiTLoader:
             pipeline.enable_model_cpu_offload()
         elif with_aggressive_offload:
             pipeline.enable_sequential_cpu_offload()
-        pipeline.dwprocessor = DWposeDetector(model_root=model_path, device='cpu')
-        pipeline.parsing_model = Parsing(model_root=model_path, device='cpu')
+        pipeline.dwprocessor = DWposeDetector(model_root=os.path.join(folder_paths.models_dir, "FitDiT_models"), device='cpu')
+        pipeline.parsing_model = Parsing(model_root=os.path.join(folder_paths.models_dir, "FitDiT_models"), device='cpu')
         return (pipeline,)
 
 class FitDiTMaskGenerator:
